@@ -42,7 +42,7 @@ def main_menu_keyboard(update, context):
 # Start Command
 def start_cmd(update, context):
     logger.info("Start Command")
-    # main_menu_keyboard(update, context)
+    main_menu_keyboard(update, context)
 
     return INTERMEDIATE
 
@@ -134,19 +134,18 @@ def main():
 
     # CONVERSATIONS HANDLER
     # Main Conversation
-    main_conversation_handler = ConversationHandler(entry_points=[start_handler],
-                                                    states={
-        INTERMEDIATE: [MessageHandler(Filters.text, intermediate)]},
-        fallbacks=[CommandHandler(
-            'cancel', cancel_cmd)]
+    main_conv_handler = ConversationHandler(entry_points=[start_handler],
+                                            states={
+        INTERMEDIATE: [MessageHandler(Filters.all, intermediate)]
+    },
+        fallbacks=[cancel_handler])
 
-    )
-
-    handlers = [start_handler, cancel_handler, main_conversation_handler]
+    handlers = [start_handler, cancel_handler, main_conv_handler]
 
     for handler in handlers:
         dp.add_handler(handler)
 
+    dp.add_handler(start_handler)
     # log all errors
     dp.add_error_handler(error)
 

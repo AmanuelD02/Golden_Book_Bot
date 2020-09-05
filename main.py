@@ -13,7 +13,7 @@ from utils import(send_msg)
 TOKEN = os.environ.get("GOLDEN_BOOK_BOT_TOKEN")
 
 # Variables
-ADMIN_NAMES = {123: "Amanuel", 456: "Mastewal"}
+ADMIN_NAMES = {311644567: "Amanuel", 456: "Mastewal"}
 # STATE Variables
 INTERMEDIATE = 1
 
@@ -42,6 +42,7 @@ def main_menu_keyboard(update, context):
 # Start Command
 def start_cmd(update, context):
     logger.info("Start Command")
+    # print(update.effective_chat.id)
     main_menu_keyboard(update, context)
 
     return INTERMEDIATE
@@ -53,6 +54,8 @@ def book_request(update, context):
     logger.info("Send Book Request")
     txt = "Please Enter The Book title and author."
     send_msg(update, context, text=txt, reply_markup=ReplyKeyboardRemove())
+
+    return
 
 
 # /feedback
@@ -78,10 +81,16 @@ def Submit_essay(update, context):
 
 def Admin_features(update, context):
     logging.info("Admin Only")
-    admin_name = ADMIN_NAMES.get(update.effective_chat.id)
-
-    send_msg(update, context, text=f'Welocme {admin_name} ',
-             reply_markup=ReplyKeyboardRemove())
+    user = update.effective_chat.id
+    if user in ADMIN_NAMES.keys():
+        admin_name = ADMIN_NAMES.get(update.effective_chat.id)
+        send_msg(update, context, text=f'Welocme {admin_name} ',
+                 reply_markup=ReplyKeyboardRemove())
+    else:
+        send_msg(update, context, text="You are not authorized!",
+                 reply_markup=ReplyKeyboardRemove())
+        start_cmd(update, context)
+        return
 
     return
 
@@ -100,9 +109,7 @@ def intermediate(update, context):
     elif switch == 2:
         feedback(update, context)
     elif switch == 3:
-        user = update.effective_chat.id
-        if user in ADMIN_NAMES.keys():
-            Admin_features(update, context)
+        Admin_features(update, context)
     else:
         send_msg(update, context, text="Unkown Command")
 
@@ -131,7 +138,10 @@ def main():
     # Start
     start_handler = CommandHandler('start', start_cmd)
     cancel_handler = CommandHandler('cancel', cancel_cmd)
-
+    book_request_handler = CommandHandler('book_request', book_request)
+    feedback_handler = CommandHandler('feedback', feedback)
+    admin_handler = CommandHandler('admin', Admin_features)
+    submit_essay_handler = CommandHandler('submit_writing', Submit_essay)
     # CONVERSATIONS HANDLER
     # Main Conversation
     main_conv_handler = ConversationHandler(entry_points=[start_handler],
@@ -140,7 +150,8 @@ def main():
     },
         fallbacks=[cancel_handler])
 
-    handlers = [start_handler, cancel_handler, main_conv_handler]
+    handlers = [start_handler, cancel_handler,
+                main_conv_handler, book_request_handler, feedback_handler, admin_handler, submit_essay_handler]
 
     for handler in handlers:
         dp.add_handler(handler)

@@ -2,12 +2,13 @@ import logging
 import os
 
 from telegram import (ReplyKeyboardMarkup,
-                      ReplyKeyboardRemove, KeyboardButton, ParseMode)
+                      ReplyKeyboardRemove, KeyboardButton, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Updater, CommandHandler,
-                          MessageHandler, ConversationHandler, Filters)
+                          MessageHandler, ConversationHandler, Filters, CallbackQueryHandler)
 
 # utils
-from utils import(send_msg)
+from utils import(send_msg, json_to_txt,
+                  search_book_by_author, search_book_by_title)
 
 # token of Morgul_bot
 TOKEN = os.environ.get("GOLDEN_BOOK_BOT_TOKEN")
@@ -15,7 +16,7 @@ TOKEN = os.environ.get("GOLDEN_BOOK_BOT_TOKEN")
 # Variables
 ADMIN_NAMES = {311644567: "Amanuel", 456: "Mastewal"}
 # STATE Variables
-INTERMEDIATE = 1
+INTERMEDIATE, SEARCH_BY, FEEDBACK, RESPONSE = range(4)
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -52,10 +53,14 @@ def start_cmd(update, context):
 
 def book_request(update, context):
     logger.info("Send Book Request")
-    txt = "Please Enter The Book title and author."
-    send_msg(update, context, text=txt, reply_markup=ReplyKeyboardRemove())
+    txt = "Do you want to search by Title or Author? Choose Below"
+    author = InlineKeyboardButton(
+        text="Search by Author", callback_data="search-author")
+    title = InlineKeyboardButton(
+        text="Search by Title", callback_data="search-title")
 
-    return
+    send_msg(update, context, text=txt,
+             reply_markup=InlineKeyboardMarkup([[title, author]]))
 
 
 # /feedback
@@ -66,9 +71,23 @@ def feedback(update, context):
     update.message.reply_text('Write Your Feedback below',
                               reply_markup=ReplyKeyboardRemove())
 
-    return
+    return FEEDBACK
 
 # /Submit_essay
+
+
+def feedback_recieve(update, context):
+    logger.info("Feedback Recieved func")
+    logger.info(f'Message- {update.message.text}')
+    context.bot.forward_message(chat_id=-1001427033230,
+                                from_chat_id=update.message.chat_id,
+                                message_id=update.message.message_id)
+
+    logger.info("Message Sent")
+
+    return RESPONSE
+
+
 
 
 def Submit_essay(update, context):
@@ -99,7 +118,7 @@ def intermediate(update, context):
     logger.info("Intermediate ")
     choice = update.message.text
     choice_dict = {'📚 SEND BOOK REQUESTS': 0, '✍️ Submit your writing': 1,
-                   '📝 Send Us Feedback': 2, '🏴‍☠️ ADMIN Features': 3}
+                   '📝 Send Us Feedback': 2, '🏴‍☠️ ADMIN Features': 3, "Cancel": 4}
 
     switch = choice_dict.get(choice)
     if switch == 0:
@@ -110,8 +129,52 @@ def intermediate(update, context):
         feedback(update, context)
     elif switch == 3:
         Admin_features(update, context)
+    elif switch == 4:
+        cancel_cmd(update, context)
+
     else:
-        send_msg(update, context, text="Unkown Command")
+        send_msg(update, context, text="")
+
+# In this function the user sends the author or title to the function
+
+
+def book_search(update, context):
+    logger.info("Search Book Button")
+    query_data = update.callback_query.data
+    context.bot.answer_callback_query(update.callback_query.id)
+
+    context.user_data['search_by'] = query_data
+
+    if query_data == "search-title":
+        send_msg(update, context, text="Please enter the title of the book")
+    else:
+        send_msg(update, context, text="Please enter the Author")
+
+    return SEARCH_BY
+
+
+def search_book_conv(update, context):
+    logger.info("Search book conversation message reciever")
+    search_by = context.user_data['search_by']
+    context.user_data.clear()
+
+    if search_by == "search-title":
+        title = update.message.text
+        logger.info(f'Title - {title}')
+        results = json_to_txt(search_book_by_title(title))
+
+    else:
+        author = update.message.text
+        logger.info(f'Author - {author}')
+        results = json_to_txt(search_book_by_author(author))
+
+    del search_by
+    for result in results:
+        logger.info(result)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id, text=result, parse_mode=ParseMode.HTML)
+
+    return ConversationHandler.END
 
 
 def cancel_cmd(update, context):
@@ -135,28 +198,47 @@ def main():
     dp = updater.dispatcher
 
     # COMMAND HANDLER
-    # Start
-    start_handler = CommandHandler('start', start_cmd)
+
     cancel_handler = CommandHandler('cancel', cancel_cmd)
     book_request_handler = CommandHandler('book_request', book_request)
-    feedback_handler = CommandHandler('feedback', feedback)
+    #feedback_handler = CommandHandler('feedback', feedback)
     admin_handler = CommandHandler('admin', Admin_features)
     submit_essay_handler = CommandHandler('submit_writing', Submit_essay)
+
+    # CallBack  Handler
+
     # CONVERSATIONS HANDLER
     # Main Conversation
-    main_conv_handler = ConversationHandler(entry_points=[start_handler],
+    main_conv_handler = ConversationHandler(entry_points=[CommandHandler('start', start_cmd)],
                                             states={
-        INTERMEDIATE: [MessageHandler(Filters.all, intermediate)]
+        INTERMEDIATE: [MessageHandler(Filters.text, intermediate)]
     },
         fallbacks=[cancel_handler])
 
-    handlers = [start_handler, cancel_handler,
-                main_conv_handler, book_request_handler, feedback_handler, admin_handler, submit_essay_handler]
+    # Search book
+
+    search_book_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(book_search, pattern="search-")],
+        states={
+            SEARCH_BY: [MessageHandler(Filters.text, search_book_conv)]},
+        fallbacks=[cancel_handler])
+
+    # FeedBack
+    feedback_conversation_handler = ConversationHandler(entry_points=[CommandHandler('feedback', feedback)],
+                                                        states={
+        FEEDBACK: [MessageHandler(Filters.text, feedback_recieve)]
+    },
+        fallbacks=[cancel_handler])
+
+    handlers = [cancel_handler,
+                main_conv_handler, book_request_handler,
+                admin_handler, submit_essay_handler,
+                search_book_handler, feedback_conversation_handler]
 
     for handler in handlers:
         dp.add_handler(handler)
 
-    dp.add_handler(start_handler)
+    # dp.add_handler(start_handler)
     # log all errors
     dp.add_error_handler(error)
 

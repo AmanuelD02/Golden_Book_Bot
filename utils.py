@@ -24,10 +24,11 @@ def styler_admin(name, author, year, genre):
 # style book information used in book request
 
 
-def styler_users(name, author, year, size, link):
+def styler_users(name, author, year, size, link, extension):
     text = "<b>Book - " + name + "\n" + "Author</b> - " + "<i>" + author + "</i>" + "\n" + \
         "_______________" + "\n" + "<b>Year </b>- " + str(year) + "\n" + "Size - " + size + "\n" + \
-        "_______________" + "\n" + "LINK - " + link + "\n"   "@golden_bookstore"
+        "_______________" + "\n" + "LINK - " + \
+        f"<a href = '{link}'>" + f"{extension}</a>" + "\n"   "@golden_bookstore"
     return text
 
 
@@ -68,13 +69,13 @@ def json_to_txt(result):
         if link_extracter is None:
             continue
         txt = styler_users(book['Title'], book['Author'],
-                           book['Year'], book['Size'], link_extract)
+                           book['Year'], book['Size'], link_extract, book['Extension'])
 
         texts.append(txt)
 
     return texts
 
 
-a = search_book_by_title("ethiopia")
+# a = search_book_by_title("ethiopia")
 
-pp(json_to_txt(a))
+# pp(json_to_txt(a))

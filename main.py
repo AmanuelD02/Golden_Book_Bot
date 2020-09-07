@@ -29,8 +29,11 @@ def main_menu_keyboard(update, context):
     menu_options = [
         [KeyboardButton('📚 SEND BOOK REQUESTS'),
          KeyboardButton('✍️ Submit your writing')],
-        [KeyboardButton('📝 Send Us Feedback')],
-        [KeyboardButton('🏴‍☠️ ADMIN Features')]
+
+        [KeyboardButton('📝 Send Us Feedback'),
+         KeyboardButton('🏴‍☠️ ADMIN Features')],
+
+        [KeyboardButton('Back')]
     ]
     keyboard = ReplyKeyboardMarkup(menu_options)
     context.bot.send_message(chat_id=update.effective_chat.id,
@@ -86,8 +89,6 @@ def feedback_recieve(update, context):
     logger.info("Message Sent")
 
     return RESPONSE
-
-
 
 
 def Submit_essay(update, context):
@@ -195,7 +196,7 @@ def main():
     updater = Updater(TOKEN, use_context=True)
 
     # Get The Dispatcher
-    dp = updater.dispatcher
+    dispatcher = updater.dispatcher
 
     # COMMAND HANDLER
 
@@ -236,11 +237,11 @@ def main():
                 search_book_handler, feedback_conversation_handler]
 
     for handler in handlers:
-        dp.add_handler(handler)
+        dispatcher.add_handler(handler)
 
-    # dp.add_handler(start_handler)
+    dispatcher.add_handler(start_handler)
     # log all errors
-    dp.add_error_handler(error)
+    dispatcher.add_error_handler(error)
 
     # start the bot
     updater.start_polling()
